@@ -7,10 +7,6 @@
     accion: "{{ accion | default('listar') }}"
 
   tasks:
-    - name: DEBUG - Ver valor de la variable
-      debug:
-        msg: "La variable accion recibida es: '{{ accion }}'"
-
     # ---------------------------------------------------------
     # ACCIÓN: LISTAR DOCKER
     # ---------------------------------------------------------
