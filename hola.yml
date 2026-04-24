@@ -1,24 +1,17 @@
 ---
 - name: Tarea en mi servidor real
-  hosts: all  # <--- IMPORTANTE: "all" le dice que use lo que haya en el inventario de Semaphore
-  become: true # <--- Esto le dice que use SUDO
+  hosts: all
+  become: true
   tasks:
     - name: Crear un archivo de prueba
       copy:
         content: "Semaphore estuvo aquí"
-        dest: /tmp/prueba_semaphore.txt- name: Tarea con reporte
-  hosts: all
-  become: true
-  tasks:
-    - name: Escribir en el archivo
-      copy:
-        content: "Nueva prueba con log"
-        dest: /tmp/mensaje_ansible.txt
+        dest: /tmp/prueba_semaphore.txt
 
-    - name: Comprobar el contenido (El Chivato)
-      command: cat /tmp/mensaje_ansible.txt
+    - name: Tarea con reporte
+      command: cat /tmp/prueba_semaphore.txt
       register: resultado_archivo
 
-    - name: Mostrar el contenido en el log de Semaphore
+    - name: Mostrar el contenido en el log
       debug:
-        msg: "El servidor dice que el archivo contiene: {{ resultado_archivo.stdout }}"
+        msg: "El servidor dice: {{ resultado_archivo.stdout }}"
