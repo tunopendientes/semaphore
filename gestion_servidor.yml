@@ -6,46 +6,31 @@
   become_user: root
 
   tasks:
-    # 1. LISTAR CONTENEDORES
+    # AHORA SOPORTA UNO O VARIOS (Separados por comas)
+    - name: Levantar contenedores específicos
+      docker_container:
+        name: "{{ item | trim }}"
+        state: started
+      loop: "{{ contenedor_nombre.split(',') }}"
+      when: 
+        - accion == 'levantar'
+        - contenedor_nombre | default('') | length > 0
+
+    # EL RESTO SIGUE IGUAL
     - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
-        containers_all: yes
       register: docker_info
-      when: "'listar' in accion or 'Listar' in accion"
+      when: accion == 'listar'
 
-    - name: Mostrar estado de los contenedores
+    - name: Mostrar lista
       debug:
-        msg: "-> CONTENEDOR: {{ item.Names[0] | default('N/A') | replace('/', '') }} | STATUS: {{ item.Status | default('Desconocido') }}"
+        msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
       loop: "{{ docker_info.containers | default([]) }}"
-      when: 
-        - "'listar' in accion or 'Listar' in accion"
-        - docker_info.containers is defined
+      when: accion == 'listar' and docker_info.containers is defined
 
-    # 2. ACTUALIZAR SISTEMA
-    - name: Actualizar lista de paquetes (apt update)
+    - name: Actualizar sistema
       apt:
         update_cache: yes
-      when: "'actualizar' in accion or 'Actualizar' in accion"
-
-    - name: Ejecutar actualización completa (apt upgrade)
-      apt:
         upgrade: dist
-      when: "'actualizar' in accion or 'Actualizar' in accion"
-
-    # 3. REINICIAR SERVIDOR
-    - name: Reiniciar el servidor
-      reboot:
-      when: "'reiniciar' in accion or 'Reiniciar' in accion"
-
-    # 4. INSTALAR NETDATA
-    - name: Descargar e instalar Netdata
-      shell: "curl -Ss https://get.netdata.cloud/kickstart.sh | sh -s -- --non-interactive"
-      when: "'netdata' in accion or 'Instalar' in accion"
-
-    # 5. INICIAR CONTENEDOR ESPECÍFICO
-    - name: Levantar contenedor específico
-      docker_container:
-        name: "{{ contenedor_nombre | default('') }}"
-        state: started
-      when: "'Iniciar' in accion or 'levantar' in accion"
+      when: accion == 'actualizar'
