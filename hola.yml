@@ -1,6 +1,6 @@
 ---
 - name: Mi primera receta
-  hosts: servidores
+  hosts: all
   tasks:
     - name: Mostrar un mensaje de prueba
       ansible.builtin.debug:
