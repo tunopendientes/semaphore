@@ -13,7 +13,7 @@
     - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
-        containers_show_all: yes  # <--- Esta es la forma correcta de ver los parados
+        containers_all: yes  # <--- Este es el nombre exacto que nos pidió el log
       register: docker_info
       when: "'listar' in accion or 'Listar' in accion"
 
