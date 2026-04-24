@@ -1,0 +1,7 @@
+---
+- name: Mi primera receta
+  hosts: servidores
+  tasks:
+    - name: Mostrar un mensaje de prueba
+      ansible.builtin.debug:
+        msg: "¡Hola! Esto es una prueba."
