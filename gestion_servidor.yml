@@ -6,10 +6,7 @@
   become_user: root
 
   tasks:
-    - name: DEBUG - Ver valor de la variable
-      debug:
-        msg: "La variable accion recibida es: '{{ accion }}'"
-
+    # 1. LISTAR CONTENEDORES
     - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
@@ -21,12 +18,11 @@
       debug:
         msg: "-> CONTENEDOR: {{ item.Names[0] | default('N/A') | replace('/', '') }} | STATUS: {{ item.Status | default('Desconocido') }}"
       loop: "{{ docker_info.containers | default([]) }}"
-      loop_control:
-        label: "{{ item.Names[0] | default('sin_nombre') }}"
       when: 
         - "'listar' in accion or 'Listar' in accion"
         - docker_info.containers is defined
 
+    # 2. ACTUALIZAR SISTEMA
     - name: Actualizar lista de paquetes (apt update)
       apt:
         update_cache: yes
@@ -37,10 +33,19 @@
         upgrade: dist
       when: "'actualizar' in accion or 'Actualizar' in accion"
 
+    # 3. REINICIAR SERVIDOR
     - name: Reiniciar el servidor
       reboot:
       when: "'reiniciar' in accion or 'Reiniciar' in accion"
 
+    # 4. INSTALAR NETDATA
     - name: Descargar e instalar Netdata
       shell: "curl -Ss https://get.netdata.cloud/kickstart.sh | sh -s -- --non-interactive"
-      when: "'instalar_netdata' in accion or 'Instalar' in accion"
+      when: "'netdata' in accion or 'Instalar' in accion"
+
+    # 5. INICIAR CONTENEDOR ESPECÍFICO
+    - name: Levantar contenedor específico
+      docker_container:
+        name: "{{ contenedor_nombre | default('') }}"
+        state: started
+      when: "'Iniciar' in accion or 'levantar' in accion"
