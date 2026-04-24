@@ -1,35 +1,52 @@
 ---
 - name: Gestion Integral del Servidor
   hosts: all
-  become: true
-  tasks:
+  become: yes
+  vars:
+    # Por si acaso la variable no llega, definimos un valor por defecto
+    accion: "{{ accion | default('listar') }}"
 
-    # --- SECCIÓN DOCKER ---
+  tasks:
+    # ---------------------------------------------------------
     # ACCIÓN: LISTAR DOCKER
+    # ---------------------------------------------------------
     - name: Obtener info de contenedores
       docker_host_info:
         containers: yes
       register: docker_info
-      when: accion == 'listar'
+      when: accion | trim == 'listar'
 
     - name: Mostrar estado de los contenedores
       debug:
-        msg: "Contenedor: {{ item.Names[0] | default('Sin nombre') }} - Estado: {{ item.Status | default('Desconocido') }}"
+        msg: "Contenedor: {{ item.Names[0] | default('Sin nombre') }} - Estado: {{ item.Status | default('N/A') }}"
       loop: "{{ docker_info.containers }}"
-      when: accion == 'listar' and docker_info.containers is defined
+      when: 
+        - accion | trim == 'listar'
+        - docker_info.containers is defined
 
-    # --- SECCIÓN ACTUALIZACIONES ---
+    # ---------------------------------------------------------
+    # ACCIÓN: ACTUALIZAR SISTEMA
+    # ---------------------------------------------------------
     - name: Actualizar lista de paquetes (apt update)
       apt:
         update_cache: yes
-      when: accion == 'actualizar'
+      when: accion | trim == 'actualizar'
 
     - name: Ejecutar actualización completa (apt upgrade)
       apt:
         upgrade: dist
-      when: accion == 'actualizar'
+      when: accion | trim == 'actualizar'
 
-    # --- SECCIÓN REINICIO ---
+    # ---------------------------------------------------------
+    # ACCIÓN: REINICIAR SERVIDOR
+    # ---------------------------------------------------------
     - name: Reiniciar el servidor
       reboot:
-      when: accion == 'reiniciar'
+      when: accion | trim == 'reiniciar'
+
+    # ---------------------------------------------------------
+    # ACCIÓN: INSTALAR NETDATA
+    # ---------------------------------------------------------
+    - name: Descargar e instalar Netdata
+      shell: "curl -Ss https://get.netdata.cloud/kickstart.sh | sh -s -- --non-interactive"
+      when: accion | trim == 'instalar_netdata'
