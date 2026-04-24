@@ -2,8 +2,8 @@
 - name: Gestion Integral del Servidor
   hosts: all
   become: yes
-  vars:
-    accion: "{{ accion | default('listar') }}"
+  become_method: sudo
+  become_user: root
 
   tasks:
     - name: DEBUG - Ver valor de la variable
@@ -23,13 +23,6 @@
       when: 
         - "'listar' in accion or 'Listar' in accion"
         - docker_info.containers is defined
-
-    - name: Forzar desbloqueo de apt (Limpieza de seguridad)
-      shell: |
-        rm -f /var/lib/apt/lists/lock
-        rm -f /var/lib/dpkg/lock*
-      become: yes
-      when: "'actualizar' in accion or 'Actualizar' in accion"
 
     - name: Actualizar lista de paquetes (apt update)
       apt:
