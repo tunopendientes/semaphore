@@ -27,17 +27,25 @@
     - name: Actualizar lista de paquetes (apt update)
       apt:
         update_cache: yes
+      become: yes
+      become_method: sudo
       when: "accion | trim == 'actualizar' or accion | trim == 'Actualizar sistema (Apt upgrade)'"
 
     - name: Ejecutar actualización completa (apt upgrade)
       apt:
         upgrade: dist
+      become: yes
+      become_method: sudo
       when: "accion | trim == 'actualizar' or accion | trim == 'Actualizar sistema (Apt upgrade)'"
 
     - name: Reiniciar el servidor
       reboot:
+      become: yes
+      become_method: sudo
       when: "accion | trim == 'reiniciar' or accion | trim == 'Reiniciar el servidor'"
 
     - name: Descargar e instalar Netdata
       shell: "curl -Ss https://get.netdata.cloud/kickstart.sh | sh -s -- --non-interactive"
+      become: yes
+      become_method: sudo
       when: "accion | trim == 'instalar_netdata' or accion | trim == 'Instalar monitorización Netdata'"
