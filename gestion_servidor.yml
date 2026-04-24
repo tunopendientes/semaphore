@@ -10,16 +10,20 @@
       debug:
         msg: "La variable accion recibida es: '{{ accion }}'"
 
-    - name: Obtener info de contenedores
+    - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
+        containers_filters:
+          all: true  # <--- Esto fuerza a traer tanto los UP como los EXIT/PAUSED
       register: docker_info
       when: "'listar' in accion or 'Listar' in accion"
 
     - name: Mostrar estado de los contenedores
       debug:
-        msg: "Contenedor: {{ item.Names[0] | default('Sin nombre') }} - Estado: {{ item.Status | default('N/A') }}"
+        msg: "-> NOMBRE: {{ item.Names[0] | replace('/', '') }} | ESTADO: {{ item.State }} | STATUS: {{ item.Status }}"
       loop: "{{ docker_info.containers | default([]) }}"
+      loop_control:
+        label: "{{ item.Names[0] }}"
       when: 
         - "'listar' in accion or 'Listar' in accion"
         - docker_info.containers is defined
