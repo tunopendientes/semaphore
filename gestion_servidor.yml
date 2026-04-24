@@ -5,15 +5,18 @@
   tasks:
 
     # --- SECCIÓN DOCKER ---
-    - name: Listar contenedores activos
+    # ACCIÓN: LISTAR DOCKER
+    - name: Obtener info de contenedores
       docker_host_info:
         containers: yes
       register: docker_info
+      when: accion == 'listar'
 
     - name: Mostrar estado de los contenedores
       debug:
-        msg: "El contenedor {{ item.Names[0] }} está {{ item.State }}"
+        msg: "Contenedor: {{ item.Names[0] | default('Sin nombre') }} - Estado: {{ item.Status | default('Desconocido') }}"
       loop: "{{ docker_info.containers }}"
+      when: accion == 'listar' and docker_info.containers is defined
 
     # --- SECCIÓN ACTUALIZACIONES ---
     - name: Actualizar lista de paquetes (apt update)
