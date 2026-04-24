@@ -13,16 +13,16 @@
     - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
-        containers_all: yes  # <--- Este es el nombre exacto que nos pidió el log
+        containers_all: yes
       register: docker_info
       when: "'listar' in accion or 'Listar' in accion"
 
     - name: Mostrar estado de los contenedores
       debug:
-        msg: "-> NOMBRE: {{ item.Names[0] | replace('/', '') }} | ESTADO: {{ item.State }} | STATUS: {{ item.Status }}"
+        msg: "-> CONTENEDOR: {{ item.Names[0] | default('N/A') | replace('/', '') }} | STATUS: {{ item.Status | default('Desconocido') }}"
       loop: "{{ docker_info.containers | default([]) }}"
       loop_control:
-        label: "{{ item.Names[0] | default('container') }}"
+        label: "{{ item.Names[0] | default('sin_nombre') }}"
       when: 
         - "'listar' in accion or 'Listar' in accion"
         - docker_info.containers is defined
