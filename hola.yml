@@ -1,7 +1,9 @@
 ---
-- name: Mi primera receta
-  hosts: all
+- name: Tarea en mi servidor real
+  hosts: all  # <--- IMPORTANTE: "all" le dice que use lo que haya en el inventario de Semaphore
+  become: true # <--- Esto le dice que use SUDO
   tasks:
-    - name: Mostrar un mensaje de prueba
-      ansible.builtin.debug:
-        msg: "¡Hola! Esto es una prueba."
+    - name: Crear un archivo de prueba
+      copy:
+        content: "Semaphore estuvo aquí"
+        dest: /tmp/prueba_semaphore.txt
