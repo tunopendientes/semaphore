@@ -1,0 +1,32 @@
+---
+- name: Gestion Integral del Servidor
+  hosts: all
+  become: true
+  tasks:
+
+    # --- SECCIÓN DOCKER ---
+    - name: Listar contenedores activos
+      docker_host_info:
+        containers: yes
+      register: docker_info
+
+    - name: Mostrar estado de los contenedores
+      debug:
+        msg: "El contenedor {{ item.Names[0] }} está {{ item.State }}"
+      loop: "{{ docker_info.containers }}"
+
+    # --- SECCIÓN ACTUALIZACIONES ---
+    - name: Actualizar lista de paquetes (apt update)
+      apt:
+        update_cache: yes
+      when: accion == 'actualizar'
+
+    - name: Ejecutar actualización completa (apt upgrade)
+      apt:
+        upgrade: dist
+      when: accion == 'actualizar'
+
+    # --- SECCIÓN REINICIO ---
+    - name: Reiniciar el servidor
+      reboot:
+      when: accion == 'reiniciar'
