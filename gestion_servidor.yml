@@ -13,8 +13,7 @@
     - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
-        containers_filters:
-          all: true  # <--- Esto fuerza a traer tanto los UP como los EXIT/PAUSED
+        containers_show_all: yes  # <--- Esta es la forma correcta de ver los parados
       register: docker_info
       when: "'listar' in accion or 'Listar' in accion"
 
@@ -23,7 +22,7 @@
         msg: "-> NOMBRE: {{ item.Names[0] | replace('/', '') }} | ESTADO: {{ item.State }} | STATUS: {{ item.Status }}"
       loop: "{{ docker_info.containers | default([]) }}"
       loop_control:
-        label: "{{ item.Names[0] }}"
+        label: "{{ item.Names[0] | default('container') }}"
       when: 
         - "'listar' in accion or 'Listar' in accion"
         - docker_info.containers is defined
