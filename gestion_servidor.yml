@@ -5,6 +5,7 @@
   vars:
     # Valor por defecto por si la variable llega vacía
     accion: "{{ accion | default('listar') }}"
+    ansible_sudo_pass: "{{ sudo_password }}"
 
   tasks:
     # ---------------------------------------------------------
