@@ -3,17 +3,13 @@
   hosts: all
   become: yes
   vars:
-    # Por si acaso la variable no llega, definimos un valor por defecto
     accion: "{{ accion | default('listar') }}"
 
   tasks:
-    tasks:
-    - name: DEBUG - ¿Qué valor tiene la variable accion?
+    - name: DEBUG - Ver valor de la variable
       debug:
-        msg: "El valor de la variable accion es: '{{ accion }}'"
-    # ---------------------------------------------------------
-    # ACCIÓN: LISTAR DOCKER
-    # ---------------------------------------------------------
+        msg: "La variable accion recibida es: '{{ accion }}'"
+
     - name: Obtener info de contenedores
       docker_host_info:
         containers: yes
@@ -28,9 +24,6 @@
         - accion | trim == 'listar'
         - docker_info.containers is defined
 
-    # ---------------------------------------------------------
-    # ACCIÓN: ACTUALIZAR SISTEMA
-    # ---------------------------------------------------------
     - name: Actualizar lista de paquetes (apt update)
       apt:
         update_cache: yes
@@ -41,16 +34,10 @@
         upgrade: dist
       when: accion | trim == 'actualizar'
 
-    # ---------------------------------------------------------
-    # ACCIÓN: REINICIAR SERVIDOR
-    # ---------------------------------------------------------
     - name: Reiniciar el servidor
       reboot:
       when: accion | trim == 'reiniciar'
 
-    # ---------------------------------------------------------
-    # ACCIÓN: INSTALAR NETDATA
-    # ---------------------------------------------------------
     - name: Descargar e instalar Netdata
       shell: "curl -Ss https://get.netdata.cloud/kickstart.sh | sh -s -- --non-interactive"
       when: accion | trim == 'instalar_netdata'
