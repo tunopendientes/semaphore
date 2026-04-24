@@ -1,51 +1,18 @@
 ---
-- name: Gestion Integral del Servidor
+- name: Diagnostico de Permisos
   hosts: all
-  become: yes
-  vars:
-    accion: "{{ accion | default('listar') }}"
-
   tasks:
-    - name: DEBUG - Ver valor de la variable
+    - name: ¿Quién soy yo?
+      command: whoami
+      register: quien_soy
+
+    - name: ¿Puedo hacer sudo sin contraseña?
+      command: sudo -n true
+      register: puedo_sudo
+      ignore_errors: yes
+
+    - name: Mostrar resultados
       debug:
-        msg: "La variable accion recibida es: '{{ accion }}'"
-
-    - name: Obtener info de contenedores
-      docker_host_info:
-        containers: yes
-      register: docker_info
-      when: "accion | trim == 'listar' or accion | trim == 'Listar contenedores Docker'"
-
-    - name: Mostrar estado de los contenedores
-      debug:
-        msg: "Contenedor: {{ item.Names[0] | default('Sin nombre') }} - Estado: {{ item.Status | default('N/A') }}"
-      loop: "{{ docker_info.containers }}"
-      when: 
-        - "accion | trim == 'listar' or accion | trim == 'Listar contenedores Docker'"
-        - "docker_info.containers is defined"
-
-    - name: Actualizar lista de paquetes (apt update)
-      apt:
-        update_cache: yes
-      become: yes
-      become_method: sudo
-      when: "accion | trim == 'actualizar' or accion | trim == 'Actualizar sistema (Apt upgrade)'"
-
-    - name: Ejecutar actualización completa (apt upgrade)
-      apt:
-        upgrade: dist
-      become: yes
-      become_method: sudo
-      when: "accion | trim == 'actualizar' or accion | trim == 'Actualizar sistema (Apt upgrade)'"
-
-    - name: Reiniciar el servidor
-      reboot:
-      become: yes
-      become_method: sudo
-      when: "accion | trim == 'reiniciar' or accion | trim == 'Reiniciar el servidor'"
-
-    - name: Descargar e instalar Netdata
-      shell: "curl -Ss https://get.netdata.cloud/kickstart.sh | sh -s -- --non-interactive"
-      become: yes
-      become_method: sudo
-      when: "accion | trim == 'instalar_netdata' or accion | trim == 'Instalar monitorización Netdata'"
+        msg: 
+          - "Usuario SSH: {{ quien_soy.stdout }}"
+          - "Resultado Sudo (0 es éxito): {{ puedo_sudo.rc }}"
