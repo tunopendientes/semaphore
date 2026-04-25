@@ -6,44 +6,29 @@
   become_user: root
 
   tasks:
-    # 1. ACCIÓN: LEVANTAR CONTENEDORES
-    - name: Levantar contenedores específicos
+    # 1. LEVANTAR (Soporta uno o varios)
+    - name: Levantar contenedores
       docker_container:
         name: "{{ item | trim }}"
         state: started
       loop: "{{ (contenedor_nombre | default('')).split(',') }}"
-      when: 
-        - accion == 'levantar'
-        - contenedor_nombre is defined and (contenedor_nombre | trim | length > 0)
+      when: accion == 'levantar' and contenedor_nombre | default('') | length > 0
 
-    # 2. ACCIÓN: LISTAR CONTENEDORES
+    # 2. LISTAR (Vuelve a la forma que te funcionaba)
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
-        containers_all: yes
       register: docker_info
       when: accion == 'listar'
 
-    - name: Mostrar lista de contenedores
+    - name: Mostrar lista
       debug:
         msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
-      loop: "{{ docker_info.containers | default([]) }}"
-      when: 
-        - accion == 'listar'
-        - docker_info.containers is defined
-      loop_control:
-        label: "{{ item.Names[0] }}"
+      loop: "{{ docker_info.containers }}"
+      when: accion == 'listar' and docker_info.containers is defined
 
-    # Tarea de depuración extra: Si no lista nada, que nos diga qué recibió
-    - name: Diagnóstico en caso de lista vacía
-      debug:
-        msg: "No se encontraron contenedores o la respuesta de Docker fue vacía."
-      when: 
-        - accion == 'listar'
-        - docker_info.containers is not defined or (docker_info.containers | length == 0)
-
-    # 3. ACCIÓN: ACTUALIZAR SISTEMA
-    - name: Actualizar repositorios y paquetes
+    # 3. ACTUALIZAR
+    - name: Actualizar sistema
       apt:
         update_cache: yes
         upgrade: dist
