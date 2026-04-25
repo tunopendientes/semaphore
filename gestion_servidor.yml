@@ -27,12 +27,30 @@
         - (accion | default('') == 'reiniciar' or 'Reiniciar' in accion | default(''))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 3. ACCIÓN: LIBERAR SWAP
+    # 3. ACCIÓN: VER LOGS (100 líneas)
+    - name: Obtener logs de contenedores
+      shell: "docker logs --tail 100 {{ item | trim }}"
+      register: docker_logs
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') == 'ver_logs' or 'Logs' in accion | default(''))
+        - contenedor_nombre | default('') | trim | length > 0
+      failed_when: false # Para que no explote si el contenedor no existe
+
+    - name: Mostrar logs en Semaphore
+      debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ docker_logs.results | default([]) }}"
+      when: 
+        - (accion | default('') == 'ver_logs' or 'Logs' in accion | default(''))
+        - item.stdout_lines is defined
+
+    # 4. ACCIÓN: LIBERAR SWAP
     - name: Vaciar y reactivar memoria SWAP
       shell: "swapoff -a && swapon -a"
       when: (accion | default('') == 'liberar_swap' or 'Liberar' in accion | default(''))
 
-    # 4. ACCIÓN: LISTAR
+    # 5. ACCIÓN: LISTAR
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
@@ -50,7 +68,7 @@
       loop_control:
         label: "{{ item.Names[0] | replace('/', '') }}"
 
-    # 5. ACCIÓN: ACTUALIZAR SISTEMA
+    # 6. ACCIÓN: ACTUALIZAR SISTEMA
     - name: Actualizar sistema
       apt:
         update_cache: yes
