@@ -6,6 +6,9 @@
   become_user: root
 
   tasks:
+    - name: Debug de variables
+      debug:
+        msg: "La accion es: {{ accion }} y el contenedor es: {{ contenedor_nombre }}"
     # 1. LEVANTAR (Soporta uno o varios)
     - name: Levantar contenedores
       docker_container:
