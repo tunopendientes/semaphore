@@ -172,3 +172,36 @@
       when: 
         - (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
         - archivos_viejos.matched > 0
+        
+    # 9. ACCIÓN: BACKUP DE POSTGRESQL
+    - name: Crear carpeta de backups para Postgres
+      file:
+        path: "/home/soporte_ansible/backups_db/postgres"
+        state: directory
+        owner: soporte_ansible
+        group: soporte_ansible
+        mode: '0755'
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
+
+    - name: Ejecutar volcado de PostgreSQL
+      shell: |
+        set -o pipefail
+        docker exec -e PGPASSWORD='{{ pg_password }}' {{ pg_container_name }} pg_dumpall -U {{ pg_user }} | gzip > /home/soporte_ansible/backups_db/postgres/pg_backup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.sql.gz
+      args:
+        executable: /bin/bash
+      vars:
+        # --- CONFIGURA AQUÍ TUS DATOS ---
+        pg_container_name: "postgres"  # Ej: postgres_db
+        pg_password: "d3dGPesKxtModVNAYvOXvkdeQxyDT5jq"             # La que pusiste en POSTGRES_PASSWORD
+        pg_user: "pendientes"                           # Usuario por defecto (suele ser postgres)
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
+
+    - name: Listar copias de Postgres
+      shell: "ls -lh /home/soporte_ansible/backups_db/postgres/"
+      register: ls_pg
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
+
+    - name: Mostrar archivos Postgres en Semaphore
+      debug:
+        msg: "{{ ls_pg.stdout_lines }}"
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
