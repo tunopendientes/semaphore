@@ -6,19 +6,20 @@
   become_user: root
 
   vars:
-    # EDITAR AQUÍ: Pon los nombres exactos de tus contenedores críticos
+    # Contenedores críticos para auditoría
     contenedores_criticos:
       - mariadb
       - netdata
-      - semaphore
       - nextcloud
+      - postgres
       - wp-lnt
       - wp-ygb
   tasks:
-    # TAREA DE DIAGNÓSTICO: Para saber qué está pasando con la variable accion
+    # TAREA DE DIAGNÓSTICO
     - name: "DEBUG: Valor de la variable accion"
       debug:
         msg: "La accion recibida es: {{ accion | default('VACÍO') }}"
+
     # 1. ACCIÓN: INICIAR
     - name: Iniciar contenedores específicos
       docker_container:
@@ -81,7 +82,7 @@
       loop_control:
         label: "{{ item.Names[0] | replace('/', '') }}"
 
-    # 6. ACCIÓN: AUDITAR
+    # 6. ACCIÓN: AUDITAR (Correo y Telegram)
     - name: Obtener info para auditoria
       docker_host_info:
         containers: yes
@@ -91,7 +92,6 @@
 
     - name: Filtrar criticos caidos y limpiar formato
       set_fact:
-        # Esta línea es la clave: extrae nombres y los une en un texto simple
         lista_caidos_texto: >-
           {% set caidos = [] %}
           {% for c in (docker_audit.containers | default([])) %}
@@ -115,10 +115,8 @@
         subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
         body: |
           Se han detectado servicios críticos fuera de servicio.
-
           Contenedores afectados: {{ lista_caidos_texto }}
-
-          Por favor, revisa Semaphore para reiniciarlos.
+          Por favor, revisa Semaphore.
       when: 
         - (accion | default('') is search('auditar', ignorecase=True))
         - lista_caidos_texto | trim != ""
@@ -129,35 +127,48 @@
         update_cache: yes
         upgrade: dist
       when: (accion | default('') is search('actualizar', ignorecase=True) or accion | default('') is search('Actualizar', ignorecase=True))
-    
+
     # 8. ACCIÓN: BACKUP DE BASE DE DATOS
     - name: Crear carpeta de backups
       file:
         path: "/home/soporte_ansible/backups_db"
         state: directory
-        mode: '0777'  # Permiso total temporal para descartar bloqueos
+        owner: soporte_ansible
+        group: soporte_ansible
+        mode: '0755'
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
     - name: Ejecutar volcado de MariaDB
-      shell: "docker exec mariadb mariadb-dump -u root -p'Torpedin01@' --all-databases | gzip > /home/soporte_ansible/backups_db/backup_test.sql.gz"
-      register: backup_result
+      shell: |
+        set -o pipefail
+        docker exec mariadb mariadb-dump -u root --password='PON_AQUÍ_LA_CONTRASEÑA' --all-databases | gzip > /home/soporte_ansible/backups_db/db_backup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.sql.gz
+      args:
+        executable: /bin/bash
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
-    - name: Verificar si el archivo se creó realmente
+    - name: Listar copias existentes
       shell: "ls -lh /home/soporte_ansible/backups_db/"
-      register: ls_output
+      register: ls_res
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
-    - name: Mostrar resultado del LS en Semaphore
+    - name: Mostrar archivos en Semaphore
       debug:
-        msg: "{{ ls_output.stdout_lines }}"
+        msg: "{{ ls_res.stdout_lines }}"
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
-    - name: Ajustar permisos finales
-      file:
-        path: "/home/soporte_ansible/backups_db"
-        owner: soporte_ansible
-        group: soporte_ansible
-        recurse: yes
-        mode: '0755'
+    - name: Borrar copias de más de 7 días
+      find:
+        paths: "/home/soporte_ansible/backups_db"
+        age: 7d
+        patterns: "*.sql.gz"
+      register: archivos_viejos
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
+
+    - name: Eliminar archivos caducados
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ archivos_viejos.files | default([]) }}"
+      when: 
+        - (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
+        - archivos_viejos.matched > 0
