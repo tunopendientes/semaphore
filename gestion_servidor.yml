@@ -141,7 +141,7 @@
     - name: Ejecutar volcado de MariaDB
       shell: |
         set -o pipefail
-        docker exec mariadb mariadb-dump -u root --password='PON_AQUÍ_LA_CONTRASEÑA' --all-databases | gzip > /home/soporte_ansible/backups_db/db_backup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.sql.gz
+        docker exec mariadb mariadb-dump -u root --password='Torpedin01@' --all-databases | gzip > /home/soporte_ansible/backups_db/db_backup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.sql.gz
       args:
         executable: /bin/bash
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
