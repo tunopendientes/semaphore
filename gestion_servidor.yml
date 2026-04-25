@@ -7,7 +7,6 @@
 
   tasks:
     # 1. ACCIÓN: LEVANTAR CONTENEDORES
-    # Permite uno o varios nombres separados por comas (ej: n8n, vaultwarden)
     - name: Levantar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
@@ -18,25 +17,33 @@
         - contenedor_nombre is defined and (contenedor_nombre | trim | length > 0)
 
     # 2. ACCIÓN: LISTAR CONTENEDORES
-    # containers_all: yes asegura que muestre también los que están caídos
-    - name: Obtener info de todos los contenedores
+    - name: Obtener info de Docker
       docker_host_info:
         containers: yes
         containers_all: yes
       register: docker_info
       when: accion == 'listar'
 
-    # Imprime el resultado en el log de Semaphore
     - name: Mostrar lista de contenedores
       debug:
         msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
-      loop: "{{ docker_info.containers }}"
+      loop: "{{ docker_info.containers | default([]) }}"
       when: 
         - accion == 'listar'
-        - docker_info is defined and docker_info.containers is defined
+        - docker_info.containers is defined
+      loop_control:
+        label: "{{ item.Names[0] }}"
+
+    # Tarea de depuración extra: Si no lista nada, que nos diga qué recibió
+    - name: Diagnóstico en caso de lista vacía
+      debug:
+        msg: "No se encontraron contenedores o la respuesta de Docker fue vacía."
+      when: 
+        - accion == 'listar'
+        - docker_info.containers is not defined or (docker_info.containers | length == 0)
 
     # 3. ACCIÓN: ACTUALIZAR SISTEMA
-    - name: Actualizar repositorios y paquetes (upgrade)
+    - name: Actualizar repositorios y paquetes
       apt:
         update_cache: yes
         upgrade: dist
