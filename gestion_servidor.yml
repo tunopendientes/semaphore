@@ -6,7 +6,7 @@
   become_user: root
 
   vars:
-    # EDITAR AQUÍ: Pon los nombres exactos de los contenedores que quieres vigilar
+    # EDITAR AQUÍ: Tus contenedores críticos (SIN semaphore)
     contenedores_criticos:
       - mariadb
       - netdata
@@ -16,22 +16,82 @@
       - wp-ygb
 
   tasks:
-    # ... (Tus otras tareas: Iniciar, Reiniciar, Logs, Swap, Listar) ...
+    # 1. INICIAR
+    - name: Iniciar contenedores específicos
+      docker_container:
+        name: "{{ item | trim }}"
+        state: started
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') is search('levantar', ignorecase=True) or accion | default('') is search('Iniciar', ignorecase=True))
+        - contenedor_nombre | default('') | trim | length > 0
 
-    # NUEVA ACCIÓN: AUDITORÍA SELECTIVA
-    - name: Obtener estado de todos los contenedores
+    # 2. REINICIAR
+    - name: Reiniciar contenedores específicos
+      docker_container:
+        name: "{{ item | trim }}"
+        state: started
+        restart: yes
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') is search('reiniciar', ignorecase=True))
+        - contenedor_nombre | default('') | trim | length > 0
+
+    # 3. VER LOGS
+    - name: Obtener logs de contenedores
+      shell: "docker logs --tail 100 {{ item | trim }}"
+      register: docker_logs
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') is search('ver_logs', ignorecase=True) or accion | default('') is search('Logs', ignorecase=True))
+        - contenedor_nombre | default('') | trim | length > 0
+      failed_when: false
+
+    - name: Mostrar logs en Semaphore
+      debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ docker_logs.results | default([]) }}"
+      when: 
+        - (accion | default('') is search('ver_logs', ignorecase=True) or accion | default('') is search('Logs', ignorecase=True))
+        - item.stdout_lines is defined
+
+    # 4. LIBERAR SWAP
+    - name: Vaciar y reactivar memoria SWAP
+      shell: "swapoff -a && swapon -a"
+      when: (accion | default('') is search('liberar_swap', ignorecase=True) or accion | default('') is search('Liberar', ignorecase=True))
+
+    # 5. LISTAR (Aquí es donde fallaba)
+    - name: Obtener info de Docker
+      docker_host_info:
+        containers: yes
+        containers_all: yes
+      register: docker_info
+      when: (accion | default('') is search('listar', ignorecase=True) or accion | default('') is search('Listar', ignorecase=True))
+
+    - name: Mostrar lista de todos los contenedores
+      debug:
+        msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
+      loop: "{{ docker_info.containers | default([]) }}"
+      when: 
+        - (accion | default('') is search('listar', ignorecase=True) or accion | default('') is search('Listar', ignorecase=True))
+        - docker_info.containers is defined
+      loop_control:
+        label: "{{ item.Names[0] | replace('/', '') }}"
+
+    # 6. AUDITAR Y ENVIAR CORREO
+    - name: Obtener estado para auditoría
       docker_host_info:
         containers: yes
         containers_all: yes
       register: docker_audit
-      when: (accion | default('') == 'auditar' or 'Auditar' in accion | default(''))
+      when: (accion | default('') is search('auditar', ignorecase=True))
 
-    - name: Filtrar solo los críticos que están parados
+    - name: Filtrar críticos caídos
       set_fact:
         criticos_caidos: "{{ docker_audit.containers | selectattr('State', 'equalto', 'exited') | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
-      when: (accion | default('') == 'auditar' or 'Auditar' in accion | default(''))
+      when: (accion | default('') is search('auditar', ignorecase=True))
 
-    - name: Enviar correo de alerta selectiva
+    - name: Enviar correo
       community.general.mail:
         host: smtp.gmail.com
         port: 587
@@ -39,13 +99,15 @@
         username: "tu-correo@gmail.com"
         password: "tu-password-de-aplicacion"
         to: "tu-correo-destino@gmail.com"
-        subject: "⚠️ ALERTA CRÍTICA: Contenedores caídos en {{ inventory_hostname }}"
-        body: |
-          Se ha detectado que los siguientes servicios CRÍTICOS no están funcionando:
-          
-          {{ criticos_caidos | join('\n') }}
-          
-          Por favor, accede a Semaphore para reiniciarlos.
+        subject: "⚠️ ALERTA: Contenedores caídos"
+        body: "Servicios críticos abajo: {{ criticos_caidos | join(', ') }}"
       when: 
-        - (accion | default('') == 'auditar' or 'Auditar' in accion | default(''))
-        - criticos_caidos | length > 0
+        - (accion | default('') is search('auditar', ignorecase=True))
+        - criticos_caidos | default([]) | length > 0
+
+    # 7. ACTUALIZAR
+    - name: Actualizar sistema
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: (accion | default('') is search('actualizar', ignorecase=True) or accion | default('') is search('Actualizar', ignorecase=True))
