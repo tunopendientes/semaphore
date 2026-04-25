@@ -6,7 +6,7 @@
   become_user: root
 
   tasks:
-    # 1. ACCIÓN: LEVANTAR (Solo los inicia si están parados)
+    # 1. ACCIÓN: LEVANTAR
     - name: Iniciar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
@@ -16,11 +16,12 @@
         - (accion | default('') == 'levantar' or 'Iniciar' in accion | default(''))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 2. ACCIÓN: REINICIAR (Los para y los vuelve a arrancar)
+    # 2. ACCIÓN: REINICIAR (Cambiado para que sea compatible con tu versión)
     - name: Reiniciar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
-        state: restarted
+        state: started
+        restart: yes
       loop: "{{ (contenedor_nombre | default('')).split(',') }}"
       when: 
         - (accion | default('') == 'reiniciar' or 'Reiniciar' in accion | default(''))
