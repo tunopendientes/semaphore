@@ -126,26 +126,34 @@
         upgrade: dist
       when: (accion | default('') is search('actualizar', ignorecase=True) or accion | default('') is search('Actualizar', ignorecase=True))
     
-    # 8. ACCIÓN: BACKUP DE BASE DE DATOS (Ruta Garantizada)
-    - name: Crear carpeta de backups en el Home del usuario
+    # 8. ACCIÓN: BACKUP DE BASE DE DATOS
+    - name: Crear carpeta de backups
       file:
         path: "/home/soporte_ansible/backups_db"
         state: directory
-        owner: soporte_ansible
-        group: soporte_ansible
-        mode: '0755'
+        mode: '0777'  # Permiso total temporal para descartar bloqueos
       when: (accion | default('') is search('backup', ignorecase=True))
 
     - name: Ejecutar volcado de MariaDB
-      shell: >
-        docker exec mariadb mariadb-dump -u root -p'TU_PASSWORD_AQUÍ' --all-databases | 
-        gzip > /home/soporte_ansible/backups_db/backup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.sql.gz
+      shell: "docker exec mariadb mariadb-dump -u root -p'TU_PASSWORD' --all-databases | gzip > /home/soporte_ansible/backups_db/backup_test.sql.gz"
+      register: backup_result
       when: (accion | default('') is search('backup', ignorecase=True))
 
-    - name: Asegurar permisos del archivo generado
+    - name: Verificar si el archivo se creó realmente
+      shell: "ls -lh /home/soporte_ansible/backups_db/"
+      register: ls_output
+      when: (accion | default('') is search('backup', ignorecase=True))
+
+    - name: Mostrar resultado del LS en Semaphore
+      debug:
+        msg: "{{ ls_output.stdout_lines }}"
+      when: (accion | default('') is search('backup', ignorecase=True))
+
+    - name: Ajustar permisos finales
       file:
         path: "/home/soporte_ansible/backups_db"
         owner: soporte_ansible
         group: soporte_ansible
         recurse: yes
+        mode: '0755'
       when: (accion | default('') is search('backup', ignorecase=True))
