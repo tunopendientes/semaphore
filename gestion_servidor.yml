@@ -6,39 +6,34 @@
   become_user: root
 
   tasks:
-    # 1. DEBUG (Para ver qué está llegando realmente)
-    - name: Debug de variables
-      debug:
-        msg: "La accion es: {{ accion | default('NO RECIBIDA') }} y el contenedor es: {{ contenedor_nombre | default('VACIO') }}"
-
-    # 2. LEVANTAR
+    # 1. LEVANTAR (Busca si la palabra 'levantar' o 'Iniciar' aparece en la acción)
     - name: Levantar contenedores
       docker_container:
         name: "{{ item | trim }}"
         state: started
       loop: "{{ (contenedor_nombre | default('')).split(',') }}"
       when: 
-        - accion | default('') == 'levantar'
+        - (accion | default('') == 'levantar' or 'Iniciar' in accion | default(''))
         - contenedor_nombre | default('') | length > 0
 
-    # 3. LISTAR
+    # 2. LISTAR (Busca si la palabra 'listar' o 'Listar' aparece en la acción)
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
       register: docker_info
-      when: accion | default('') == 'listar'
+      when: (accion | default('') == 'listar' or 'Listar' in accion | default(''))
 
     - name: Mostrar lista
       debug:
         msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
       loop: "{{ docker_info.containers | default([]) }}"
       when: 
-        - accion | default('') == 'listar'
+        - (accion | default('') == 'listar' or 'Listar' in accion | default(''))
         - docker_info.containers is defined
 
-    # 4. ACTUALIZAR
+    # 3. ACTUALIZAR
     - name: Actualizar sistema
       apt:
         update_cache: yes
         upgrade: dist
-      when: accion | default('') == 'actualizar'
+      when: (accion | default('') == 'actualizar' or 'Actualizar' in accion | default(''))
