@@ -126,18 +126,26 @@
         upgrade: dist
       when: (accion | default('') is search('actualizar', ignorecase=True) or accion | default('') is search('Actualizar', ignorecase=True))
     
-    # 8. ACCIÓN: BACKUP DE BASE DE DATOS
-    - name: Crear carpeta de backups
+    # 8. ACCIÓN: BACKUP DE BASE DE DATOS (Ruta Garantizada)
+    - name: Crear carpeta de backups en el Home del usuario
       file:
-        path: "/backups/mariadb" # Cambiamos a una ruta fuera de /root para evitar problemas
+        path: "/home/soporte_ansible/backups_db"
         state: directory
         owner: soporte_ansible
         group: soporte_ansible
-        mode: '0775'
+        mode: '0755'
       when: (accion | default('') is search('backup', ignorecase=True))
 
     - name: Ejecutar volcado de MariaDB
       shell: >
-        docker exec mariadb mariadb-dump -u root -p'Torpedin01@' --all-databases | 
-        gzip > /backups/mariadb/backup_{{ ansible_date_time.date }}.sql.gz
+        docker exec mariadb mariadb-dump -u root -p'TU_PASSWORD_AQUÍ' --all-databases | 
+        gzip > /home/soporte_ansible/backups_db/backup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.sql.gz
+      when: (accion | default('') is search('backup', ignorecase=True))
+
+    - name: Asegurar permisos del archivo generado
+      file:
+        path: "/home/soporte_ansible/backups_db"
+        owner: soporte_ansible
+        group: soporte_ansible
+        recurse: yes
       when: (accion | default('') is search('backup', ignorecase=True))
