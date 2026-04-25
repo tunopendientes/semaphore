@@ -94,7 +94,7 @@
               {% set _ = caidos.append(nombre) %}
             {% endif %}
           {% endfor %}
-          {{ caidos }}
+          {{ caidos | list }}
       when: (accion | default('') is search('auditar', ignorecase=True))
 
     - name: Enviar correo de alerta
@@ -107,10 +107,17 @@
         password: e9gcb3pgedzo3lovwgd8jjn4wezryw2c4e2pdbjxpsfo02neuggdiv67g13qogv1
         to: lauragonzalez.150463@gmail.com
         subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
-        body: "Se han detectado servicios críticos fuera de servicio: {{ criticos_caidos | join(', ') }}"
+        body: |
+          Se han detectado servicios críticos fuera de servicio en el servidor.
+          
+          Contenedores afectados:
+          {{ criticos_caidos | join(', ') }}
+          
+          Por favor, revisa Semaphore para reiniciarlos.
       when: 
         - (accion | default('') is search('auditar', ignorecase=True))
-        - criticos_caidos | default([]) | length > 0
+        - criticos_caidos | length > 0
+        - criticos_caidos != []
 
     # 7. ACCIÓN: ACTUALIZAR SISTEMA
     - name: Actualizar sistema
