@@ -6,30 +6,37 @@
   become_user: root
 
   tasks:
-    # AHORA SOPORTA UNO O VARIOS (Separados por comas)
+    # 1. ACCIÓN: LEVANTAR CONTENEDORES
+    # Permite uno o varios nombres separados por comas (ej: n8n, vaultwarden)
     - name: Levantar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
         state: started
-      loop: "{{ contenedor_nombre.split(',') }}"
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
       when: 
         - accion == 'levantar'
-        - contenedor_nombre | default('') | length > 0
+        - contenedor_nombre is defined and (contenedor_nombre | trim | length > 0)
 
-    # EL RESTO SIGUE IGUAL
+    # 2. ACCIÓN: LISTAR CONTENEDORES
+    # containers_all: yes asegura que muestre también los que están caídos
     - name: Obtener info de todos los contenedores
       docker_host_info:
         containers: yes
+        containers_all: yes
       register: docker_info
       when: accion == 'listar'
 
-    - name: Mostrar lista
+    # Imprime el resultado en el log de Semaphore
+    - name: Mostrar lista de contenedores
       debug:
         msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
-      loop: "{{ docker_info.containers | default([]) }}"
-      when: accion == 'listar' and docker_info.containers is defined
+      loop: "{{ docker_info.containers }}"
+      when: 
+        - accion == 'listar'
+        - docker_info is defined and docker_info.containers is defined
 
-    - name: Actualizar sistema
+    # 3. ACCIÓN: ACTUALIZAR SISTEMA
+    - name: Actualizar repositorios y paquetes (upgrade)
       apt:
         update_cache: yes
         upgrade: dist
