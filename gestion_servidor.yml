@@ -103,6 +103,7 @@
         port: 587
         secure: starttls
         username: admin@proyectolanuevatierra.com
+        from: admin@proyectolanuevatierra.com
         password: e9gcb3pgedzo3lovwgd8jjn4wezryw2c4e2pdbjxpsfo02neuggdiv67g13qogv1
         to: lauragonzalez.150463@gmail.com
         subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
