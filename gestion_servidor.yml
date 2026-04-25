@@ -86,7 +86,19 @@
 
     - name: Filtrar criticos caidos
       set_fact:
-        criticos_caidos: "{{ docker_audit.containers | selectattr('State', 'ne', 'running') | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
+        criticos_caidos: "{{ docker_audit.containers | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
+      when: (accion | default('') is search('auditar', ignorecase=True))
+
+    - name: Refinar lista solo a los que NO estan UP
+      set_fact:
+        lista_final: >-
+          {% set caidos = [] %}
+          {% for c in docker_audit.containers %}
+            {% if (c.Names[0] | replace('/', '')) in criticos_caidos and 'Up' not in c.Status %}
+              {% set _ = caidos.append(c.Names[0] | replace('/', '')) %}
+            {% endif %}
+          {% endfor %}
+          {{ caidos }}
       when: (accion | default('') is search('auditar', ignorecase=True))
 
     - name: Enviar correo de alerta
@@ -102,12 +114,12 @@
         body: |
           Se han detectado servicios críticos fuera de servicio.
           
-          Contenedores afectados: {{ criticos_caidos | join(', ') }}
+          Contenedores afectados: {{ lista_final | join(', ') }}
           
           Por favor, revisa Semaphore.
       when: 
         - (accion | default('') is search('auditar', ignorecase=True))
-        - criticos_caidos | length > 0
+        - lista_final | default([]) | length > 0
 
     # 7. ACCIÓN: ACTUALIZAR
     - name: Actualizar sistema
