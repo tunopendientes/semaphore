@@ -15,6 +15,10 @@
       - wp-lnt
       - wp-ygb
   tasks:
+    # TAREA DE DIAGNÓSTICO: Para saber qué está pasando con la variable accion
+    - name: "DEBUG: Valor de la variable accion"
+      debug:
+        msg: "La accion recibida es: {{ accion | default('VACÍO') }}"
     # 1. ACCIÓN: INICIAR
     - name: Iniciar contenedores específicos
       docker_container:
