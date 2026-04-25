@@ -6,8 +6,8 @@
   become_user: root
 
   tasks:
-    # 1. ACCIÓN: LEVANTAR
-    - name: Levantar contenedores
+    # 1. ACCIÓN: LEVANTAR (Solo los inicia si están parados)
+    - name: Iniciar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
         state: started
@@ -16,7 +16,17 @@
         - (accion | default('') == 'levantar' or 'Iniciar' in accion | default(''))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 2. ACCIÓN: LISTAR (Añadido containers_all para ver los parados)
+    # 2. ACCIÓN: REINICIAR (Los para y los vuelve a arrancar)
+    - name: Reiniciar contenedores específicos
+      docker_container:
+        name: "{{ item | trim }}"
+        state: restarted
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') == 'reiniciar' or 'Reiniciar' in accion | default(''))
+        - contenedor_nombre | default('') | trim | length > 0
+
+    # 3. ACCIÓN: LISTAR
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
@@ -31,8 +41,10 @@
       when: 
         - (accion | default('') == 'listar' or 'Listar' in accion | default(''))
         - docker_info.containers is defined
+      loop_control:
+        label: "{{ item.Names[0] | replace('/', '') }}"
 
-    # 3. ACCIÓN: ACTUALIZAR
+    # 4. ACCIÓN: ACTUALIZAR SISTEMA
     - name: Actualizar sistema
       apt:
         update_cache: yes
