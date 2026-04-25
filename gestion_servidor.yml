@@ -6,7 +6,7 @@
   become_user: root
 
   tasks:
-    # 1. LEVANTAR (Busca si la palabra 'levantar' o 'Iniciar' aparece en la acción)
+    # 1. ACCIÓN: LEVANTAR
     - name: Levantar contenedores
       docker_container:
         name: "{{ item | trim }}"
@@ -14,16 +14,17 @@
       loop: "{{ (contenedor_nombre | default('')).split(',') }}"
       when: 
         - (accion | default('') == 'levantar' or 'Iniciar' in accion | default(''))
-        - contenedor_nombre | default('') | length > 0
+        - contenedor_nombre | default('') | trim | length > 0
 
-    # 2. LISTAR (Busca si la palabra 'listar' o 'Listar' aparece en la acción)
+    # 2. ACCIÓN: LISTAR (Añadido containers_all para ver los parados)
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
+        containers_all: yes
       register: docker_info
       when: (accion | default('') == 'listar' or 'Listar' in accion | default(''))
 
-    - name: Mostrar lista
+    - name: Mostrar lista de todos los contenedores
       debug:
         msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
       loop: "{{ docker_info.containers | default([]) }}"
@@ -31,7 +32,7 @@
         - (accion | default('') == 'listar' or 'Listar' in accion | default(''))
         - docker_info.containers is defined
 
-    # 3. ACTUALIZAR
+    # 3. ACCIÓN: ACTUALIZAR
     - name: Actualizar sistema
       apt:
         update_cache: yes
