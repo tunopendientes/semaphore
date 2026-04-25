@@ -6,17 +6,15 @@
   become_user: root
 
   vars:
-    # EDITAR AQUÍ: Tus contenedores críticos (SIN semaphore)
+    # EDITAR AQUÍ: Pon los nombres exactos de tus contenedores críticos
     contenedores_criticos:
       - mariadb
-      - netdata
-      - semaphore
       - nextcloud
-      - wp-lnt
       - wp-ygb
+      - n8n-ai
 
   tasks:
-    # 1. INICIAR
+    # 1. ACCIÓN: INICIAR
     - name: Iniciar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
@@ -26,7 +24,7 @@
         - (accion | default('') is search('levantar', ignorecase=True) or accion | default('') is search('Iniciar', ignorecase=True))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 2. REINICIAR
+    # 2. ACCIÓN: REINICIAR
     - name: Reiniciar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
@@ -37,7 +35,7 @@
         - (accion | default('') is search('reiniciar', ignorecase=True))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 3. VER LOGS
+    # 3. ACCIÓN: VER LOGS (100 líneas)
     - name: Obtener logs de contenedores
       shell: "docker logs --tail 100 {{ item | trim }}"
       register: docker_logs
@@ -55,12 +53,12 @@
         - (accion | default('') is search('ver_logs', ignorecase=True) or accion | default('') is search('Logs', ignorecase=True))
         - item.stdout_lines is defined
 
-    # 4. LIBERAR SWAP
+    # 4. ACCIÓN: LIBERAR SWAP
     - name: Vaciar y reactivar memoria SWAP
       shell: "swapoff -a && swapon -a"
       when: (accion | default('') is search('liberar_swap', ignorecase=True) or accion | default('') is search('Liberar', ignorecase=True))
 
-    # 5. LISTAR (Aquí es donde fallaba)
+    # 5. ACCIÓN: LISTAR
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
@@ -78,7 +76,7 @@
       loop_control:
         label: "{{ item.Names[0] | replace('/', '') }}"
 
-    # 6. AUDITAR Y ENVIAR CORREO
+    # 6. ACCIÓN: AUDITAR (Vigila críticos y envía correo)
     - name: Obtener estado para auditoría
       docker_host_info:
         containers: yes
@@ -88,24 +86,32 @@
 
     - name: Filtrar críticos caídos
       set_fact:
-        criticos_caidos: "{{ docker_audit.containers | selectattr('State', 'equalto', 'exited') | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
+        criticos_caidos: >-
+          {% set caidos = [] %}
+          {% for c in (docker_audit.containers | default([])) %}
+            {% set nombre = c.Names[0] | replace('/', '') %}
+            {% if nombre in contenedores_criticos and 'Up' not in c.Status %}
+              {% set _ = caidos.append(nombre) %}
+            {% endif %}
+          {% endfor %}
+          {{ caidos }}
       when: (accion | default('') is search('auditar', ignorecase=True))
 
-    - name: Enviar correo
+    - name: Enviar correo de alerta
       community.general.mail:
         host: smtp.gmail.com
         port: 587
         secure: starttls
-        username: "tu-correo@gmail.com"
-        password: "tu-password-de-aplicacion"
-        to: "tu-correo-destino@gmail.com"
-        subject: "⚠️ ALERTA: Contenedores caídos"
-        body: "Servicios críticos abajo: {{ criticos_caidos | join(', ') }}"
+        username: "TU_CORREO@gmail.com"
+        password: "TU_PASSWORD_APLICACION"
+        to: "CORREO_DESTINO@gmail.com"
+        subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
+        body: "Se han detectado servicios críticos fuera de servicio: {{ criticos_caidos | join(', ') }}"
       when: 
         - (accion | default('') is search('auditar', ignorecase=True))
         - criticos_caidos | default([]) | length > 0
 
-    # 7. ACTUALIZAR
+    # 7. ACCIÓN: ACTUALIZAR SISTEMA
     - name: Actualizar sistema
       apt:
         update_cache: yes
