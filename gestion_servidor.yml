@@ -136,22 +136,22 @@
         path: "/home/soporte_ansible/backups_db"
         state: directory
         mode: '0777'  # Permiso total temporal para descartar bloqueos
-      when: (accion | default('') is search('backup', ignorecase=True))
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
     - name: Ejecutar volcado de MariaDB
       shell: "docker exec mariadb mariadb-dump -u root -p'TU_PASSWORD' --all-databases | gzip > /home/soporte_ansible/backups_db/backup_test.sql.gz"
       register: backup_result
-      when: (accion | default('') is search('backup', ignorecase=True))
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
     - name: Verificar si el archivo se creó realmente
       shell: "ls -lh /home/soporte_ansible/backups_db/"
       register: ls_output
-      when: (accion | default('') is search('backup', ignorecase=True))
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
     - name: Mostrar resultado del LS en Semaphore
       debug:
         msg: "{{ ls_output.stdout_lines }}"
-      when: (accion | default('') is search('backup', ignorecase=True))
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
     - name: Ajustar permisos finales
       file:
@@ -160,4 +160,4 @@
         group: soporte_ansible
         recurse: yes
         mode: '0755'
-      when: (accion | default('') is search('backup', ignorecase=True))
+      when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
