@@ -16,7 +16,7 @@
         - (accion | default('') == 'levantar' or 'Iniciar' in accion | default(''))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 2. ACCIÓN: REINICIAR (Cambiado para que sea compatible con tu versión)
+    # 2. ACCIÓN: REINICIAR
     - name: Reiniciar contenedores específicos
       docker_container:
         name: "{{ item | trim }}"
@@ -27,7 +27,12 @@
         - (accion | default('') == 'reiniciar' or 'Reiniciar' in accion | default(''))
         - contenedor_nombre | default('') | trim | length > 0
 
-    # 3. ACCIÓN: LISTAR
+    # 3. ACCIÓN: LIBERAR SWAP
+    - name: Vaciar y reactivar memoria SWAP
+      shell: "swapoff -a && swapon -a"
+      when: (accion | default('') == 'liberar_swap' or 'Liberar' in accion | default(''))
+
+    # 4. ACCIÓN: LISTAR
     - name: Obtener info de Docker
       docker_host_info:
         containers: yes
@@ -45,7 +50,7 @@
       loop_control:
         label: "{{ item.Names[0] | replace('/', '') }}"
 
-    # 4. ACCIÓN: ACTUALIZAR SISTEMA
+    # 5. ACCIÓN: ACTUALIZAR SISTEMA
     - name: Actualizar sistema
       apt:
         update_cache: yes
