@@ -9,10 +9,11 @@
     # EDITAR AQUÍ: Pon los nombres exactos de tus contenedores críticos
     contenedores_criticos:
       - mariadb
+      - netdata
+      - semaphore
       - nextcloud
+      - wp-lnt
       - wp-ygb
-      - n8n-ai
-
   tasks:
     # 1. ACCIÓN: INICIAR
     - name: Iniciar contenedores específicos
