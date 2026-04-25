@@ -5,72 +5,47 @@
   become_method: sudo
   become_user: root
 
+  vars:
+    # EDITAR AQUÍ: Pon los nombres exactos de los contenedores que quieres vigilar
+    contenedores_criticos:
+      - mariadb
+      - netdata
+      - semaphore
+      - nextcloud
+      - wp-lnt
+      - wp-ygb
+
   tasks:
-    # 1. ACCIÓN: LEVANTAR
-    - name: Iniciar contenedores específicos
-      docker_container:
-        name: "{{ item | trim }}"
-        state: started
-      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
-      when: 
-        - (accion | default('') == 'levantar' or 'Iniciar' in accion | default(''))
-        - contenedor_nombre | default('') | trim | length > 0
+    # ... (Tus otras tareas: Iniciar, Reiniciar, Logs, Swap, Listar) ...
 
-    # 2. ACCIÓN: REINICIAR
-    - name: Reiniciar contenedores específicos
-      docker_container:
-        name: "{{ item | trim }}"
-        state: started
-        restart: yes
-      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
-      when: 
-        - (accion | default('') == 'reiniciar' or 'Reiniciar' in accion | default(''))
-        - contenedor_nombre | default('') | trim | length > 0
-
-    # 3. ACCIÓN: VER LOGS (100 líneas)
-    - name: Obtener logs de contenedores
-      shell: "docker logs --tail 100 {{ item | trim }}"
-      register: docker_logs
-      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
-      when: 
-        - (accion | default('') == 'ver_logs' or 'Logs' in accion | default(''))
-        - contenedor_nombre | default('') | trim | length > 0
-      failed_when: false # Para que no explote si el contenedor no existe
-
-    - name: Mostrar logs en Semaphore
-      debug:
-        msg: "{{ item.stdout_lines }}"
-      loop: "{{ docker_logs.results | default([]) }}"
-      when: 
-        - (accion | default('') == 'ver_logs' or 'Logs' in accion | default(''))
-        - item.stdout_lines is defined
-
-    # 4. ACCIÓN: LIBERAR SWAP
-    - name: Vaciar y reactivar memoria SWAP
-      shell: "swapoff -a && swapon -a"
-      when: (accion | default('') == 'liberar_swap' or 'Liberar' in accion | default(''))
-
-    # 5. ACCIÓN: LISTAR
-    - name: Obtener info de Docker
+    # NUEVA ACCIÓN: AUDITORÍA SELECTIVA
+    - name: Obtener estado de todos los contenedores
       docker_host_info:
         containers: yes
         containers_all: yes
-      register: docker_info
-      when: (accion | default('') == 'listar' or 'Listar' in accion | default(''))
+      register: docker_audit
+      when: (accion | default('') == 'auditar' or 'Auditar' in accion | default(''))
 
-    - name: Mostrar lista de todos los contenedores
-      debug:
-        msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
-      loop: "{{ docker_info.containers | default([]) }}"
+    - name: Filtrar solo los críticos que están parados
+      set_fact:
+        criticos_caidos: "{{ docker_audit.containers | selectattr('State', 'equalto', 'exited') | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
+      when: (accion | default('') == 'auditar' or 'Auditar' in accion | default(''))
+
+    - name: Enviar correo de alerta selectiva
+      community.general.mail:
+        host: smtp.gmail.com
+        port: 587
+        secure: starttls
+        username: "tu-correo@gmail.com"
+        password: "tu-password-de-aplicacion"
+        to: "tu-correo-destino@gmail.com"
+        subject: "⚠️ ALERTA CRÍTICA: Contenedores caídos en {{ inventory_hostname }}"
+        body: |
+          Se ha detectado que los siguientes servicios CRÍTICOS no están funcionando:
+          
+          {{ criticos_caidos | join('\n') }}
+          
+          Por favor, accede a Semaphore para reiniciarlos.
       when: 
-        - (accion | default('') == 'listar' or 'Listar' in accion | default(''))
-        - docker_info.containers is defined
-      loop_control:
-        label: "{{ item.Names[0] | replace('/', '') }}"
-
-    # 6. ACCIÓN: ACTUALIZAR SISTEMA
-    - name: Actualizar sistema
-      apt:
-        update_cache: yes
-        upgrade: dist
-      when: (accion | default('') == 'actualizar' or 'Actualizar' in accion | default(''))
+        - (accion | default('') == 'auditar' or 'Auditar' in accion | default(''))
+        - criticos_caidos | length > 0
