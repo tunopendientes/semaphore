@@ -139,7 +139,7 @@
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
     - name: Ejecutar volcado de MariaDB
-      shell: "docker exec mariadb mariadb-dump -u root -p'TU_PASSWORD' --all-databases | gzip > /home/soporte_ansible/backups_db/backup_test.sql.gz"
+      shell: "docker exec mariadb mariadb-dump -u root -p'Torpedin01@' --all-databases | gzip > /home/soporte_ansible/backups_db/backup_test.sql.gz"
       register: backup_result
       when: (accion | default('') is search('backup', ignorecase=True) or accion | default('') is search('copia', ignorecase=True))
 
