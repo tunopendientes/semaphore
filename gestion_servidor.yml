@@ -125,3 +125,19 @@
         update_cache: yes
         upgrade: dist
       when: (accion | default('') is search('actualizar', ignorecase=True) or accion | default('') is search('Actualizar', ignorecase=True))
+    
+    # 8. ACCIÓN: BACKUP DE BASE DE DATOS
+    - name: Crear carpeta de backups
+      file:
+        path: "/backups/mariadb" # Cambiamos a una ruta fuera de /root para evitar problemas
+        state: directory
+        owner: soporte_ansible
+        group: soporte_ansible
+        mode: '0775'
+      when: (accion | default('') is search('backup', ignorecase=True))
+
+    - name: Ejecutar volcado de MariaDB
+      shell: >
+        docker exec mariadb mariadb-dump -u root -p'Torpedin01@' --all-databases | 
+        gzip > /backups/mariadb/backup_{{ ansible_date_time.date }}.sql.gz
+      when: (accion | default('') is search('backup', ignorecase=True))
