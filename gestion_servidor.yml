@@ -84,21 +84,18 @@
       register: docker_audit
       when: (accion | default('') is search('auditar', ignorecase=True))
 
-    - name: Filtrar criticos caidos
+    - name: Filtrar criticos caidos y limpiar formato
       set_fact:
-        criticos_caidos: "{{ docker_audit.containers | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
-      when: (accion | default('') is search('auditar', ignorecase=True))
-
-    - name: Refinar lista solo a los que NO estan UP
-      set_fact:
-        lista_final: >-
+        # Esta línea es la clave: extrae nombres y los une en un texto simple
+        lista_caidos_texto: >-
           {% set caidos = [] %}
-          {% for c in docker_audit.containers %}
-            {% if (c.Names[0] | replace('/', '')) in criticos_caidos and 'Up' not in c.Status %}
-              {% set _ = caidos.append(c.Names[0] | replace('/', '')) %}
+          {% for c in (docker_audit.containers | default([])) %}
+            {% set nombre = c.Names[0] | replace('/', '') %}
+            {% if nombre in contenedores_criticos and 'Up' not in c.Status %}
+              {% set _ = caidos.append(nombre) %}
             {% endif %}
           {% endfor %}
-          {{ caidos }}
+          {{ caidos | join(', ') }}
       when: (accion | default('') is search('auditar', ignorecase=True))
 
     - name: Enviar correo de alerta
@@ -113,13 +110,13 @@
         subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
         body: |
           Se han detectado servicios críticos fuera de servicio.
-          
-          Contenedores afectados: {{ lista_final | join(', ') }}
-          
-          Por favor, revisa Semaphore.
+
+          Contenedores afectados: {{ lista_caidos_texto }}
+
+          Por favor, revisa Semaphore para reiniciarlos.
       when: 
         - (accion | default('') is search('auditar', ignorecase=True))
-        - lista_final | default([]) | length > 0
+        - lista_caidos_texto | trim != ""
 
     # 7. ACCIÓN: ACTUALIZAR
     - name: Actualizar sistema
