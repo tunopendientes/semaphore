@@ -6,7 +6,7 @@
   become_user: root
 
   vars:
-    # Tus contenedores críticos
+    # EDITAR AQUÍ: Pon los nombres exactos de tus contenedores críticos
     contenedores_criticos:
       - mariadb
       - nextcloud
@@ -14,20 +14,79 @@
       - n8n-ai
 
   tasks:
-    # ... (Tareas 1 a 5 se mantienen exactamente igual) ...
-    # 1. Iniciar, 2. Reiniciar, 3. Logs, 4. Swap, 5. Listar (SIN CAMBIOS)
+    # 1. ACCIÓN: INICIAR
+    - name: Iniciar contenedores específicos
+      docker_container:
+        name: "{{ item | trim }}"
+        state: started
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') is search('levantar', ignorecase=True) or accion | default('') is search('Iniciar', ignorecase=True))
+        - contenedor_nombre | default('') | trim | length > 0
+
+    # 2. ACCIÓN: REINICIAR
+    - name: Reiniciar contenedores específicos
+      docker_container:
+        name: "{{ item | trim }}"
+        state: started
+        restart: yes
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') is search('reiniciar', ignorecase=True))
+        - contenedor_nombre | default('') | trim | length > 0
+
+    # 3. ACCIÓN: VER LOGS
+    - name: Obtener logs de contenedores
+      shell: "docker logs --tail 100 {{ item | trim }}"
+      register: docker_logs
+      loop: "{{ (contenedor_nombre | default('')).split(',') }}"
+      when: 
+        - (accion | default('') is search('ver_logs', ignorecase=True) or accion | default('') is search('Logs', ignorecase=True))
+        - contenedor_nombre | default('') | trim | length > 0
+      failed_when: false
+
+    - name: Mostrar logs en Semaphore
+      debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ docker_logs.results | default([]) }}"
+      when: 
+        - (accion | default('') is search('ver_logs', ignorecase=True) or accion | default('') is search('Logs', ignorecase=True))
+        - item.stdout_lines is defined
+
+    # 4. ACCIÓN: LIBERAR SWAP
+    - name: Vaciar y reactivar memoria SWAP
+      shell: "swapoff -a && swapon -a"
+      when: (accion | default('') is search('liberar_swap', ignorecase=True) or accion | default('') is search('Liberar', ignorecase=True))
+
+    # 5. ACCIÓN: LISTAR
+    - name: Obtener info de Docker
+      docker_host_info:
+        containers: yes
+        containers_all: yes
+      register: docker_info
+      when: (accion | default('') is search('listar', ignorecase=True) or accion | default('') is search('Listar', ignorecase=True))
+
+    - name: Mostrar lista de todos los contenedores
+      debug:
+        msg: "-> {{ item.Names[0] | replace('/', '') }} - {{ item.Status }}"
+      loop: "{{ docker_info.containers | default([]) }}"
+      when: 
+        - (accion | default('') is search('listar', ignorecase=True) or accion | default('') is search('Listar', ignorecase=True))
+        - docker_info.containers is defined
+      loop_control:
+        label: "{{ item.Names[0] | replace('/', '') }}"
 
     # 6. ACCIÓN: AUDITAR
-    - name: Obtener estado para auditoría
+    - name: Obtener info para auditoria
       docker_host_info:
         containers: yes
         containers_all: yes
       register: docker_audit
       when: (accion | default('') is search('auditar', ignorecase=True))
 
-    - name: Filtrar críticos caídos
+    - name: Filtrar criticos caidos
       set_fact:
-        criticos_caidos: "{{ docker_audit.containers | selectattr('State', 'defined') | selectattr('State', 'ne', 'running') | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
+        criticos_caidos: "{{ docker_audit.containers | selectattr('State', 'ne', 'running') | map(attribute='Names') | map('first') | map('replace', '/', '') | intersect(contenedores_criticos) | list }}"
       when: (accion | default('') is search('auditar', ignorecase=True))
 
     - name: Enviar correo de alerta
@@ -41,17 +100,16 @@
         to: lauragonzalez.150463@gmail.com
         subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
         body: |
-          Se han detectado servicios críticos caídos.
-
-          Servicios afectados:
-          {{ criticos_caidos | join(', ') }}
-
-          Acción recomendada: Entrar en Semaphore y reiniciar los contenedores mencionados.
+          Se han detectado servicios críticos fuera de servicio.
+          
+          Contenedores afectados: {{ criticos_caidos | join(', ') }}
+          
+          Por favor, revisa Semaphore.
       when: 
         - (accion | default('') is search('auditar', ignorecase=True))
         - criticos_caidos | length > 0
 
-    # 7. ACCIÓN: ACTUALIZAR SISTEMA
+    # 7. ACCIÓN: ACTUALIZAR
     - name: Actualizar sistema
       apt:
         update_cache: yes
