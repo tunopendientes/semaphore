@@ -99,12 +99,12 @@
 
     - name: Enviar correo de alerta
       community.general.mail:
-        host: smtp.gmail.com
+        host: mail.proyectolanuevatierra.com
         port: 587
         secure: starttls
-        username: "TU_CORREO@gmail.com"
-        password: "TU_PASSWORD_APLICACION"
-        to: "CORREO_DESTINO@gmail.com"
+        username: "admin@proyectolanuevatierra.com"
+        password: "e9gcb3pgedzo3lovwgd8jjn4wezryw2c4e2pdbjxpsfo02neuggdiv67g13qogv1"
+        to: "lauragonzalez.150463@gmail.com"
         subject: "⚠️ ALERTA: Contenedores caídos en {{ inventory_hostname }}"
         body: "Se han detectado servicios críticos fuera de servicio: {{ criticos_caidos | join(', ') }}"
       when: 
