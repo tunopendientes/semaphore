@@ -11,7 +11,7 @@
       - mariadb
       - netdata
       - nextcloud
-      - postgres
+      #- postgres
       - wp-lnt
       - wp-ygb
   tasks:
